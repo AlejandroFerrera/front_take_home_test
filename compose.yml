@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:17.5
+    container_name: weather-postgres
+    environment:
+      POSTGRES_USER: front
+      POSTGRES_PASSWORD: frontpass
+      POSTGRES_DB: weather
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U front -d weather"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  weather-app:
+    build: .
+    container_name: weather-app
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: front
+      POSTGRES_PASSWORD: frontpass
+      POSTGRES_DB: weather
+      WEATHER_API_BASE_URL: https://api.weather.gov
+      API_TIMEOUT: 30
+      LOG_LEVEL: INFO
+      STATION_ID: ${STATION_ID:-0007W}
+    command: ["python", "src/main.py", "--station_id", "${STATION_ID:-0007W}"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - run
+
+volumes:
+  postgres_data:
